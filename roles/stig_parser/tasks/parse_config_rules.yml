@@ -1,0 +1,58 @@
+---
+# Parse text or YAML configuration rules file
+
+- name: Read configuration rules file
+  delegate_to: localhost
+  slurp:
+    src: "{{ stig_source_file }}"
+  register: config_rules_content
+
+- name: Decode file content
+  set_fact:
+    config_rules_text: "{{ config_rules_content.content | b64decode }}"
+
+- name: Try to parse as YAML
+  set_fact:
+    config_rules_yaml: "{{ config_rules_text | from_yaml }}"
+  ignore_errors: yes
+  register: yaml_parse_result
+
+- name: Process YAML format rules
+  when: yaml_parse_result is success and config_rules_yaml is mapping
+  block:
+    - name: Set rules from YAML
+      set_fact:
+        stig_rules: "{{ config_rules_yaml.rules | default([]) }}"
+        stig_metadata:
+          title: "{{ config_rules_yaml.title | default('Custom Configuration Rules') }}"
+          version: "{{ config_rules_yaml.version | default('1.0') }}"
+          source: "{{ stig_source_file }}"
+        stig_summary:
+          total_rules: "{{ config_rules_yaml.rules | default([]) | length }}"
+          source_type: yaml
+
+- name: Process text format rules
+  when: yaml_parse_result is failed or config_rules_yaml is not mapping
+  block:
+    - name: Parse text file line by line
+      set_fact:
+        parsed_text_rules: []
+        current_severity: CAT_II
+        rule_counter: 1
+
+    - name: Process each line
+      include_tasks: process_text_line.yml
+      loop: "{{ config_rules_text.split('\n') }}"
+      loop_control:
+        loop_var: config_line
+
+    - name: Set rules from text
+      set_fact:
+        stig_rules: "{{ parsed_text_rules }}"
+        stig_metadata:
+          title: "Custom Configuration Rules (Text)"
+          version: "1.0"
+          source: "{{ stig_source_file }}"
+        stig_summary:
+          total_rules: "{{ parsed_text_rules | length }}"
+          source_type: text

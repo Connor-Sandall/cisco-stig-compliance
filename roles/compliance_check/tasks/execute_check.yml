@@ -1,0 +1,101 @@
+---
+# Execute a single compliance check
+
+- name: "Check {{ current_check.stig_id }}: {{ current_check.title }}"
+  block:
+    - name: Run verification command
+      cisco.ios.ios_command:
+        commands:
+          - "{{ current_check.check_command }}"
+      register: check_output
+      ignore_errors: yes
+
+    - name: Initialize check result
+      set_fact:
+        check_result:
+          stig_id: "{{ current_check.stig_id }}"
+          vuln_id: "{{ current_check.vuln_id | default('') }}"
+          severity: "{{ current_check.severity }}"
+          title: "{{ current_check.title }}"
+          category: "{{ current_check.category }}"
+          compliant: false
+          status: "Not Checked"
+          details: ""
+          current_config: ""
+          expected_config: "{{ current_check.expected_config | default([]) }}"
+          fix_commands: "{{ current_check.fix_commands | default([]) }}"
+
+    - name: Store command output
+      set_fact:
+        check_result: "{{ check_result | combine({'current_config': check_output.stdout[0] | default('')}) }}"
+      when: check_output is defined and check_output.stdout is defined
+
+    # Handle 'present' check type
+    - name: Evaluate presence check
+      when: current_check.check_type == 'present'
+      block:
+        - name: Check for expected configurations
+          set_fact:
+            presence_results: "{{ check_output.stdout[0] | default('') | check_config_present(current_check.expected_config | default([])) }}"
+
+        - name: Check regex pattern if specified
+          when: current_check.check_regex | default('') | length > 0
+          set_fact:
+            regex_match: "{{ check_output.stdout[0] | default('') | regex_search(current_check.check_regex) is not none }}"
+
+        - name: Set presence check result
+          set_fact:
+            check_result: "{{ check_result | combine({
+              'compliant': presence_results.compliant if (current_check.check_regex | default('') | length == 0) else (presence_results.compliant and regex_match | default(true)),
+              'status': 'Compliant' if presence_results.compliant else 'Non-Compliant',
+              'details': 'All required configurations found' if presence_results.compliant else ('Missing configurations: ' + (presence_results.missing | join(', ')))
+            }) }}"
+
+    # Handle 'absent' check type
+    - name: Evaluate absence check
+      when: current_check.check_type == 'absent'
+      block:
+        - name: Check for prohibited configurations
+          set_fact:
+            absence_results: "{{ check_output.stdout[0] | default('') | check_config_absent(current_check.prohibited_config | default([])) }}"
+
+        - name: Set absence check result
+          set_fact:
+            check_result: "{{ check_result | combine({
+              'compliant': absence_results.compliant,
+              'status': 'Compliant' if absence_results.compliant else 'Non-Compliant',
+              'details': 'No prohibited configurations found' if absence_results.compliant else ('Violations found: ' + (absence_results.violations | join(', ')))
+            }) }}"
+
+    # Handle custom/regex check type
+    - name: Evaluate regex check
+      when: current_check.check_type == 'regex'
+      block:
+        - name: Check regex pattern
+          set_fact:
+            regex_compliant: "{{ check_output.stdout[0] | default('') | regex_search(current_check.check_regex) is not none }}"
+
+        - name: Set regex check result
+          set_fact:
+            check_result: "{{ check_result | combine({
+              'compliant': regex_compliant,
+              'status': 'Compliant' if regex_compliant else 'Non-Compliant',
+              'details': 'Pattern matched' if regex_compliant else 'Pattern not found: ' + current_check.check_regex
+            }) }}"
+
+    - name: Add result to device results
+      set_fact:
+        device_compliance_results: "{{ device_compliance_results + [check_result] }}"
+
+  rescue:
+    - name: Handle check failure
+      set_fact:
+        check_result: "{{ check_result | combine({
+          'compliant': false,
+          'status': 'Error',
+          'details': 'Check execution failed: ' + (ansible_failed_result.msg | default('Unknown error'))
+        }) }}"
+
+    - name: Add error result to device results
+      set_fact:
+        device_compliance_results: "{{ device_compliance_results + [check_result] }}"

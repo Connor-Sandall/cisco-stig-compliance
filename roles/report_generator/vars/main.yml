@@ -1,0 +1,33 @@
+---
+# Report Generator Role Variables
+
+# Report output directory
+report_dir: "{{ playbook_dir }}/reports"
+
+# Report format: html, json, text, all
+report_format: html
+
+# Report schedule type: daily, weekly, monthly, manual
+report_schedule_type: manual
+
+# Generate individual device reports
+generate_device_reports: true
+
+# Generate consolidated report for all devices
+generate_consolidated_report: true
+
+# Generate executive summary
+generate_executive_summary: true
+
+# Include device details in reports
+report_include_device_details: true
+
+# Include remediation commands in reports
+report_include_remediation_commands: true
+
+# Report retention days by type
+report_retention:
+  daily: 30
+  weekly: 84
+  monthly: 365
+  manual: 90

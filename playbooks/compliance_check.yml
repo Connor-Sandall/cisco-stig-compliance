@@ -1,0 +1,78 @@
+---
+# Compliance Check Playbook
+# Checks Cisco devices against STIG requirements and generates reports
+#
+# Usage:
+#   # Check all devices using default STIG checklist:
+#   ansible-playbook playbooks/compliance_check.yml
+#
+#   # Check specific devices:
+#   ansible-playbook playbooks/compliance_check.yml --limit switch01,switch02
+#
+#   # Use a custom STIG checklist:
+#   ansible-playbook playbooks/compliance_check.yml -e "stig_checklist_file=/path/to/checklist.ckl"
+#
+#   # Use a text file with config rules:
+#   ansible-playbook playbooks/compliance_check.yml -e "stig_checklist_file=/path/to/rules.yml"
+#
+#   # Check only CAT I findings:
+#   ansible-playbook playbooks/compliance_check.yml -e "stig_severity_filter=['CAT_I']"
+
+- name: Cisco STIG Compliance Check
+  hosts: cisco_devices
+  gather_facts: no
+  serial: "{{ batch_size | default(10) }}"
+
+  vars:
+    stig_operation_mode: check
+    generate_consolidated_report: true
+
+  pre_tasks:
+    - name: Display playbook information
+      run_once: true
+      delegate_to: localhost
+      debug:
+        msg: |
+          =====================================================
+          Cisco STIG Compliance Check
+          =====================================================
+          Operation Mode: {{ stig_operation_mode }}
+          STIG Source: {{ stig_checklist_file | default('default') }}
+          Target Hosts: {{ ansible_play_hosts | length }}
+          Timestamp: {{ ansible_date_time.iso8601 }}
+          =====================================================
+
+  tasks:
+    - name: Parse STIG checklist
+      include_role:
+        name: stig_parser
+      vars:
+        stig_source_file: "{{ stig_checklist_file | default(playbook_dir + '/../stig_checklists/current/cisco_ios_stig.ckl') }}"
+
+    - name: Run compliance checks
+      include_role:
+        name: compliance_check
+
+    - name: Generate reports
+      include_role:
+        name: report_generator
+      vars:
+        report_schedule_type: "{{ schedule_type | default('manual') }}"
+
+  post_tasks:
+    - name: Display final summary
+      run_once: true
+      delegate_to: localhost
+      debug:
+        msg: |
+          =====================================================
+          Compliance Check Complete
+          =====================================================
+          {% if all_compliance_results is defined %}
+          Devices Checked: {{ all_compliance_results | length }}
+          {% for host, data in all_compliance_results.items() %}
+          {{ host }}: {{ data.summary.compliance_percentage }}% ({{ data.summary.compliant }}/{{ data.summary.total_checks }})
+          {% endfor %}
+          {% endif %}
+          Reports saved to: {{ report_dir }}/{{ schedule_type | default('manual') }}
+          =====================================================

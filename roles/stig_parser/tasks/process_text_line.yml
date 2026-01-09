@@ -1,0 +1,42 @@
+---
+# Process a single line from text config rules file
+
+- name: Skip empty lines
+  when: config_line | trim | length > 0
+  block:
+    - name: Check for severity marker
+      when: config_line | trim | regex_search('^#.*CAT', ignorecase=True)
+      set_fact:
+        current_severity: >-
+          {% if 'CAT_I' in config_line | upper or 'CAT I' in config_line | upper %}CAT_I
+          {% elif 'CAT_III' in config_line | upper or 'CAT III' in config_line | upper %}CAT_III
+          {% else %}CAT_II{% endif %}
+
+    - name: Process config line
+      when:
+        - config_line | trim | length > 0
+        - not config_line | trim | regex_search('^#')
+        - not config_line | trim | regex_search('^!')
+      block:
+        - name: Determine check type
+          set_fact:
+            line_check_type: "{{ 'absent' if (config_line | trim | lower).startswith('no ') else 'present' }}"
+
+        - name: Add rule to list
+          set_fact:
+            parsed_text_rules: "{{ parsed_text_rules + [new_rule] }}"
+          vars:
+            new_rule:
+              id: "CUSTOM-{{ '%04d' | format(rule_counter | int) }}"
+              stig_id: "CUSTOM-{{ '%04d' | format(rule_counter | int) }}"
+              severity: "{{ current_severity }}"
+              title: "Config: {{ config_line | trim | truncate(50, True) }}"
+              check_type: "{{ line_check_type }}"
+              config_lines:
+                - "{{ config_line | trim }}"
+              fix_commands:
+                - "{{ config_line | trim }}"
+
+        - name: Increment rule counter
+          set_fact:
+            rule_counter: "{{ rule_counter | int + 1 }}"

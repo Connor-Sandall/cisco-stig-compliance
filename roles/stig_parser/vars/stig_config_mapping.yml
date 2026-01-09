@@ -1,0 +1,349 @@
+---
+# STIG ID to Cisco Configuration Mapping
+# This file maps STIG vulnerability IDs to specific Cisco IOS configuration checks
+#
+# To support new STIGs, add entries to the 'mappings' dictionary below.
+# Each entry should contain:
+#   - category: The STIG category (aaa, ssh, ntp, etc.)
+#   - check_type: 'present' (config should exist) or 'absent' (config should not exist)
+#   - check_command: The show command to verify configuration
+#   - expected_config: List of configs that should be present (for check_type: present)
+#   - prohibited_config: List of configs that should NOT be present (for check_type: absent)
+#   - fix_commands: Commands to remediate the finding
+#   - check_regex: Optional regex pattern for more complex checks
+
+mappings:
+  # AAA Configuration
+  CISC-ND-000010:
+    category: aaa
+    check_type: present
+    check_command: "show running-config | section aaa"
+    expected_config:
+      - "aaa new-model"
+    fix_commands:
+      - "aaa new-model"
+
+  CISC-ND-000020:
+    category: aaa
+    check_type: present
+    check_command: "show running-config | section aaa"
+    expected_config:
+      - "aaa authentication login"
+    check_regex: "aaa authentication login .+ (group tacacs\\+|group radius|local)"
+    fix_commands:
+      - "aaa authentication login default group tacacs+ local"
+
+  CISC-ND-000030:
+    category: aaa
+    check_type: present
+    check_command: "show running-config | section aaa"
+    expected_config:
+      - "aaa authorization"
+    check_regex: "aaa authorization exec .+ (group tacacs\\+|group radius|local)"
+    fix_commands:
+      - "aaa authorization exec default group tacacs+ local"
+
+  CISC-ND-000040:
+    category: aaa
+    check_type: present
+    check_command: "show running-config | section aaa"
+    expected_config:
+      - "aaa accounting"
+    check_regex: "aaa accounting .+ start-stop"
+    fix_commands:
+      - "aaa accounting exec default start-stop group tacacs+"
+      - "aaa accounting commands 15 default start-stop group tacacs+"
+
+  # SSH Configuration
+  CISC-ND-000100:
+    category: ssh
+    check_type: present
+    check_command: "show ip ssh"
+    expected_config:
+      - "ip ssh version 2"
+    check_regex: "SSH Enabled - version 2"
+    fix_commands:
+      - "ip ssh version 2"
+
+  CISC-ND-000110:
+    category: ssh
+    check_type: present
+    check_command: "show running-config | include ip ssh"
+    expected_config:
+      - "ip ssh time-out"
+    check_regex: "ip ssh time-out [1-9][0-9]?"
+    fix_commands:
+      - "ip ssh time-out 60"
+
+  CISC-ND-000120:
+    category: ssh
+    check_type: present
+    check_command: "show running-config | include ip ssh"
+    expected_config:
+      - "ip ssh authentication-retries"
+    check_regex: "ip ssh authentication-retries [1-3]"
+    fix_commands:
+      - "ip ssh authentication-retries 3"
+
+  # Console/VTY Line Security
+  CISC-ND-000200:
+    category: console_vty
+    check_type: present
+    check_command: "show running-config | section line vty"
+    expected_config:
+      - "exec-timeout"
+    check_regex: "exec-timeout [1-9][0-9]? [0-9]+"
+    fix_commands:
+      - "line vty 0 15"
+      - " exec-timeout 10 0"
+
+  CISC-ND-000210:
+    category: console_vty
+    check_type: present
+    check_command: "show running-config | section line vty"
+    expected_config:
+      - "transport input ssh"
+    fix_commands:
+      - "line vty 0 15"
+      - " transport input ssh"
+
+  CISC-ND-000220:
+    category: console_vty
+    check_type: present
+    check_command: "show running-config | section line con"
+    expected_config:
+      - "exec-timeout"
+    check_regex: "exec-timeout [1-9][0-9]? [0-9]+"
+    fix_commands:
+      - "line con 0"
+      - " exec-timeout 10 0"
+
+  # NTP Configuration
+  CISC-ND-000300:
+    category: ntp
+    check_type: present
+    check_command: "show running-config | include ntp"
+    expected_config:
+      - "ntp authenticate"
+    fix_commands:
+      - "ntp authenticate"
+
+  CISC-ND-000310:
+    category: ntp
+    check_type: present
+    check_command: "show running-config | include ntp"
+    expected_config:
+      - "ntp server"
+    check_regex: "ntp server [0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+"
+    fix_commands:
+      - "ntp server {{ ntp_server_1 | default('10.0.0.1') }}"
+
+  # Logging Configuration
+  CISC-ND-000400:
+    category: logging
+    check_type: present
+    check_command: "show running-config | include logging"
+    expected_config:
+      - "logging buffered"
+    check_regex: "logging buffered [0-9]+"
+    fix_commands:
+      - "logging buffered 64000 informational"
+
+  CISC-ND-000410:
+    category: logging
+    check_type: present
+    check_command: "show running-config | include logging"
+    expected_config:
+      - "logging host"
+    check_regex: "logging host [0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+"
+    fix_commands:
+      - "logging host {{ syslog_server_1 | default('10.0.0.100') }}"
+
+  CISC-ND-000420:
+    category: logging
+    check_type: present
+    check_command: "show running-config | include logging"
+    expected_config:
+      - "logging trap"
+    check_regex: "logging trap (informational|debugging|notifications)"
+    fix_commands:
+      - "logging trap informational"
+
+  # Banner Configuration
+  CISC-ND-000500:
+    category: banners
+    check_type: present
+    check_command: "show running-config | section banner"
+    expected_config:
+      - "banner login"
+    check_regex: "banner login"
+    fix_commands:
+      - "banner login ^"
+      - "{{ stig_banners.login_banner | default('Authorized access only.') }}"
+      - "^"
+
+  CISC-ND-000510:
+    category: banners
+    check_type: present
+    check_command: "show running-config | section banner"
+    expected_config:
+      - "banner exec"
+    check_regex: "banner exec"
+    fix_commands:
+      - "banner exec ^"
+      - "{{ stig_banners.exec_banner | default('Authorized access only.') }}"
+      - "^"
+
+  # Service Hardening - Disable Services
+  CISC-ND-000600:
+    category: services
+    check_type: absent
+    check_command: "show running-config | include ip http server"
+    prohibited_config:
+      - "ip http server"
+    fix_commands:
+      - "no ip http server"
+
+  CISC-ND-000610:
+    category: services
+    check_type: absent
+    check_command: "show running-config | include ip http"
+    prohibited_config:
+      - "ip http secure-server"
+    fix_commands:
+      - "no ip http secure-server"
+
+  CISC-ND-000620:
+    category: services
+    check_type: absent
+    check_command: "show running-config | include ip source-route"
+    prohibited_config:
+      - "ip source-route"
+    check_regex: "^ip source-route$"
+    fix_commands:
+      - "no ip source-route"
+
+  CISC-ND-000630:
+    category: services
+    check_type: absent
+    check_command: "show running-config | include cdp"
+    prohibited_config:
+      - "cdp run"
+    check_regex: "^cdp run$"
+    fix_commands:
+      - "no cdp run"
+
+  # Service Hardening - Enable Services
+  CISC-ND-000700:
+    category: services
+    check_type: present
+    check_command: "show running-config | include service"
+    expected_config:
+      - "service password-encryption"
+    fix_commands:
+      - "service password-encryption"
+
+  CISC-ND-000710:
+    category: services
+    check_type: present
+    check_command: "show running-config | include service"
+    expected_config:
+      - "service tcp-keepalives-in"
+    fix_commands:
+      - "service tcp-keepalives-in"
+
+  CISC-ND-000720:
+    category: services
+    check_type: present
+    check_command: "show running-config | include service"
+    expected_config:
+      - "service tcp-keepalives-out"
+    fix_commands:
+      - "service tcp-keepalives-out"
+
+  # Password Configuration
+  CISC-ND-000800:
+    category: passwords
+    check_type: present
+    check_command: "show running-config | include enable secret"
+    expected_config:
+      - "enable secret"
+    check_regex: "enable (algorithm-type scrypt )?secret [5-9]"
+    fix_commands:
+      - "enable algorithm-type scrypt secret {{ vault_cisco_enable_password }}"
+
+  # SNMP Configuration
+  CISC-ND-000900:
+    category: snmp
+    check_type: absent
+    check_command: "show running-config | include snmp-server community"
+    prohibited_config:
+      - "snmp-server community"
+    check_regex: "snmp-server community [^ ]+ (RO|RW)"
+    fix_commands:
+      - "no snmp-server community public"
+      - "no snmp-server community private"
+
+  CISC-ND-000910:
+    category: snmp
+    check_type: present
+    check_command: "show running-config | include snmp-server"
+    expected_config:
+      - "snmp-server group"
+    check_regex: "snmp-server group .+ v3 (priv|auth)"
+    fix_commands:
+      - "snmp-server group SNMPV3_GROUP v3 priv"
+
+  # Interface Security
+  CISC-ND-001000:
+    category: interfaces
+    check_type: absent
+    check_command: "show running-config | include ip proxy-arp"
+    prohibited_config:
+      - "ip proxy-arp"
+    check_regex: "^\\s*ip proxy-arp$"
+    fix_commands:
+      - "no ip proxy-arp"
+
+  CISC-ND-001010:
+    category: interfaces
+    check_type: absent
+    check_command: "show running-config | include ip directed-broadcast"
+    prohibited_config:
+      - "ip directed-broadcast"
+    check_regex: "^\\s*ip directed-broadcast$"
+    fix_commands:
+      - "no ip directed-broadcast"
+
+# Category descriptions for reporting
+categories:
+  aaa:
+    name: "AAA Authentication"
+    description: "Authentication, Authorization, and Accounting configuration"
+  ssh:
+    name: "SSH Configuration"
+    description: "Secure Shell protocol settings"
+  console_vty:
+    name: "Console/VTY Security"
+    description: "Console and virtual terminal line security"
+  ntp:
+    name: "NTP Configuration"
+    description: "Network Time Protocol settings"
+  logging:
+    name: "Logging Configuration"
+    description: "System logging and audit settings"
+  banners:
+    name: "Login Banners"
+    description: "Login and MOTD banner configuration"
+  services:
+    name: "Service Hardening"
+    description: "Enable/disable system services"
+  passwords:
+    name: "Password Security"
+    description: "Password encryption and complexity"
+  snmp:
+    name: "SNMP Security"
+    description: "SNMP protocol security settings"
+  interfaces:
+    name: "Interface Security"
+    description: "Network interface security settings"

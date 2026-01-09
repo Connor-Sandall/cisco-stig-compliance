@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Executive Summary - STIG Compliance</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f8f9fa;
+            padding: 40px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            padding: 50px;
+        }
+        .logo-section {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 30px;
+            border-bottom: 2px solid #e9ecef;
+        }
+        .logo-section h1 {
+            font-size: 32px;
+            color: #343a40;
+            margin-bottom: 10px;
+        }
+        .logo-section .subtitle {
+            font-size: 16px;
+            color: #6c757d;
+        }
+        .score-section {
+            text-align: center;
+            padding: 40px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 12px;
+            margin-bottom: 40px;
+        }
+        .big-score {
+            font-size: 80px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .score-high { color: #28a745; }
+        .score-medium { color: #fd7e14; }
+        .score-low { color: #dc3545; }
+        .score-label {
+            font-size: 18px;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        .metric-card {
+            text-align: center;
+            padding: 25px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .metric-value {
+            font-size: 36px;
+            font-weight: bold;
+            color: #343a40;
+        }
+        .metric-label {
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+        }
+        .status-section {
+            margin-bottom: 40px;
+        }
+        .status-section h2 {
+            font-size: 20px;
+            margin-bottom: 20px;
+            color: #343a40;
+        }
+        .status-bar {
+            height: 30px;
+            background: #e9ecef;
+            border-radius: 15px;
+            overflow: hidden;
+            display: flex;
+        }
+        .status-bar-segment {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+        }
+        .segment-compliant { background: #28a745; }
+        .segment-partial { background: #fd7e14; }
+        .segment-non-compliant { background: #dc3545; }
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 15px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+        .recommendations {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 8px;
+            margin-bottom: 40px;
+        }
+        .recommendations h3 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            color: #343a40;
+        }
+        .recommendations ul {
+            margin-left: 20px;
+        }
+        .recommendations li {
+            margin-bottom: 8px;
+            color: #495057;
+        }
+        .footer {
+            text-align: center;
+            font-size: 12px;
+            color: #6c757d;
+            padding-top: 20px;
+            border-top: 1px solid #e9ecef;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo-section">
+            <h1>STIG Compliance Executive Summary</h1>
+            <div class="subtitle">Network Security Assessment Report - {{ report_date }}</div>
+        </div>
+
+        <div class="score-section">
+            <div class="big-score {% if overall_stats.overall_percentage >= 90 %}score-high{% elif overall_stats.overall_percentage >= 70 %}score-medium{% else %}score-low{% endif %}">
+                {{ overall_stats.overall_percentage }}%
+            </div>
+            <div class="score-label">Overall Compliance Score</div>
+        </div>
+
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-value">{{ overall_stats.total_devices }}</div>
+                <div class="metric-label">Devices Assessed</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" style="color: #28a745">{{ overall_stats.devices_100_compliant }}</div>
+                <div class="metric-label">Fully Compliant</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" style="color: #dc3545">{{ (overall_stats.total_devices | int) - (overall_stats.devices_100_compliant | int) }}</div>
+                <div class="metric-label">Need Attention</div>
+            </div>
+        </div>
+
+        <div class="status-section">
+            <h2>Compliance Distribution</h2>
+            {% set compliant_pct = ((overall_stats.total_compliant | int) / (overall_stats.total_checks | int) * 100) | round if (overall_stats.total_checks | int) > 0 else 0 %}
+            {% set non_compliant_pct = 100 - compliant_pct %}
+            <div class="status-bar">
+                <div class="status-bar-segment segment-compliant" style="width: {{ compliant_pct }}%">
+                    {% if compliant_pct > 10 %}{{ compliant_pct | round }}%{% endif %}
+                </div>
+                <div class="status-bar-segment segment-non-compliant" style="width: {{ non_compliant_pct }}%">
+                    {% if non_compliant_pct > 10 %}{{ non_compliant_pct | round }}%{% endif %}
+                </div>
+            </div>
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #28a745"></div>
+                    <span>Compliant ({{ overall_stats.total_compliant }})</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #dc3545"></div>
+                    <span>Non-Compliant ({{ overall_stats.total_non_compliant }})</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="recommendations">
+            <h3>Key Recommendations</h3>
+            <ul>
+                {% if overall_stats.total_non_compliant | int > 0 %}
+                <li>Address {{ overall_stats.total_non_compliant }} non-compliant findings across {{ overall_stats.total_devices }} devices</li>
+                {% endif %}
+                {% if (overall_stats.total_devices | int) > (overall_stats.devices_100_compliant | int) %}
+                <li>Focus remediation on {{ (overall_stats.total_devices | int) - (overall_stats.devices_100_compliant | int) }} devices with compliance gaps</li>
+                {% endif %}
+                <li>Review CAT I (Critical) findings as highest priority</li>
+                <li>Schedule follow-up assessment after remediation</li>
+                <li>Update STIG checklists when new versions are released</li>
+            </ul>
+        </div>
+
+        <div class="footer">
+            <p>Generated by Cisco STIG Compliance Automation Tool</p>
+            <p>{{ ansible_date_time.iso8601 }} | STIG Source: {{ stig_source_file | default('N/A') }}</p>
+        </div>
+    </div>
+</body>
+</html>

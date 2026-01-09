@@ -1,0 +1,17 @@
+---
+# Compliance Check Role Variables
+
+# Whether to gather device facts before checking
+gather_device_facts: true
+
+# Whether to backup config before checking
+backup_before_check: true
+
+# Check timeout (seconds)
+check_timeout: 30
+
+# Continue on check failure
+continue_on_error: true
+
+# Verbose output
+verbose_output: false

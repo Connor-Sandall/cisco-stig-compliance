@@ -1,0 +1,109 @@
+---
+# Remediation Role - Main Tasks
+# Applies fix commands for non-compliant STIG findings
+
+- name: Verify remediation is enabled
+  fail:
+    msg: "Remediation is disabled. Set stig_operation_mode to 'remediate' to enable."
+  when: stig_operation_mode | default('check') != 'remediate'
+
+- name: Get non-compliant items
+  set_fact:
+    items_to_remediate: "{{ device_compliance_results | selectattr('compliant', 'equalto', false) | list }}"
+
+- name: Check if there are items to remediate
+  debug:
+    msg: "No non-compliant items found for {{ inventory_hostname }}. Skipping remediation."
+  when: items_to_remediate | length == 0
+
+- name: Process remediation
+  when: items_to_remediate | length > 0
+  block:
+    - name: Display remediation plan
+      debug:
+        msg: |
+          === Remediation Plan for {{ inventory_hostname }} ===
+          Items to remediate: {{ items_to_remediate | length }}
+          {% for item in items_to_remediate %}
+          - {{ item.stig_id }}: {{ item.title }} ({{ item.severity }})
+          {% endfor %}
+
+    - name: Request remediation approval
+      pause:
+        prompt: |
+
+          ============================================
+          REMEDIATION APPROVAL REQUIRED
+          ============================================
+          Device: {{ inventory_hostname }}
+          Items to remediate: {{ items_to_remediate | length }}
+
+          Type 'yes' to proceed with remediation
+          Type 'no' to skip this device
+          Type 'abort' to stop all remediation
+
+          Your choice
+      register: approval_response
+      when: remediation_require_approval | default(true)
+
+    - name: Check approval response
+      fail:
+        msg: "Remediation aborted by user"
+      when:
+        - remediation_require_approval | default(true)
+        - approval_response.user_input | lower == 'abort'
+
+    - name: Skip device if not approved
+      debug:
+        msg: "Remediation skipped for {{ inventory_hostname }} per user request"
+      when:
+        - remediation_require_approval | default(true)
+        - approval_response.user_input | lower == 'no'
+
+    - name: Execute remediation
+      when: >
+        not (remediation_require_approval | default(true)) or
+        approval_response.user_input | lower == 'yes'
+      block:
+        - name: Backup configuration before remediation
+          include_role:
+            name: backup
+          vars:
+            backup_label: "pre_remediation"
+          when: backup_before_remediation | default(true)
+
+        - name: Initialize remediation results
+          set_fact:
+            remediation_results: []
+
+        - name: Apply fixes by severity (CAT I first)
+          include_tasks: remediate_by_severity.yml
+          loop:
+            - CAT_I
+            - CAT_II
+            - CAT_III
+          loop_control:
+            loop_var: remediation_severity
+          when: not remediate_all_at_once | default(false)
+
+        - name: Apply all fixes at once
+          include_tasks: apply_all_fixes.yml
+          when: remediate_all_at_once | default(false)
+
+        - name: Save configuration after remediation
+          cisco.ios.ios_config:
+            save_when: modified
+          register: save_result
+          when: save_config_after_remediation | default(true)
+
+        - name: Verify remediation
+          include_tasks: verify_remediation.yml
+          when: verify_after_remediation | default(true)
+
+        - name: Display remediation summary
+          debug:
+            msg: |
+              === Remediation Summary for {{ inventory_hostname }} ===
+              Total items: {{ items_to_remediate | length }}
+              Successfully remediated: {{ remediation_results | selectattr('success', 'equalto', true) | list | length }}
+              Failed: {{ remediation_results | selectattr('success', 'equalto', false) | list | length }}

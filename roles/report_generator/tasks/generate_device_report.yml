@@ -1,0 +1,40 @@
+---
+# Generate individual device compliance report
+
+- name: Set device report filename
+  set_fact:
+    device_report_file: "{{ report_output_dir }}/{{ inventory_hostname }}_compliance_{{ report_timestamp }}"
+
+- name: Generate HTML report
+  delegate_to: localhost
+  template:
+    src: device_report.html.j2
+    dest: "{{ device_report_file }}.html"
+  when: report_format in ['html', 'all']
+
+- name: Generate JSON report
+  delegate_to: localhost
+  copy:
+    content: "{{ device_report_data | to_nice_json }}"
+    dest: "{{ device_report_file }}.json"
+  vars:
+    device_report_data:
+      report_info:
+        generated: "{{ ansible_date_time.iso8601 }}"
+        report_type: "device_compliance"
+        stig_source: "{{ stig_source_file | default('N/A') }}"
+      device_info: "{{ device_info | default({}) }}"
+      summary: "{{ device_compliance_summary }}"
+      results: "{{ device_compliance_results }}"
+  when: report_format in ['json', 'all']
+
+- name: Generate text report
+  delegate_to: localhost
+  template:
+    src: device_report.txt.j2
+    dest: "{{ device_report_file }}.txt"
+  when: report_format in ['text', 'all']
+
+- name: Report generation complete
+  debug:
+    msg: "Device report generated: {{ device_report_file }}.{{ report_format }}"

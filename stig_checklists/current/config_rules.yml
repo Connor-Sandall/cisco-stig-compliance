@@ -1,0 +1,220 @@
+---
+# Sample STIG Configuration Rules
+# This file defines the configuration rules that should be checked on Cisco devices
+#
+# You can use this file instead of a .ckl file for simpler deployments
+# or when you have custom requirements not covered by official STIGs
+#
+# To use: ansible-playbook playbooks/compliance_check.yml -e "stig_checklist_file=stig_checklists/current/config_rules.yml"
+
+title: "Cisco IOS STIG Configuration Rules"
+version: "1.0"
+description: "Custom configuration compliance rules for Cisco IOS devices"
+
+rules:
+  # ============================================================
+  # CAT I - Critical (High) Severity
+  # ============================================================
+
+  - id: "CUSTOM-CAT1-001"
+    stig_id: "CUSTOM-CAT1-001"
+    severity: "CAT_I"
+    title: "AAA must be enabled"
+    description: "Authentication, Authorization, and Accounting (AAA) services must be enabled"
+    check_type: present
+    config_lines:
+      - "aaa new-model"
+    fix_commands:
+      - "aaa new-model"
+
+  - id: "CUSTOM-CAT1-002"
+    stig_id: "CUSTOM-CAT1-002"
+    severity: "CAT_I"
+    title: "SSH version 2 must be enabled"
+    description: "Only SSH version 2 should be used for remote management"
+    check_type: present
+    config_lines:
+      - "ip ssh version 2"
+    fix_commands:
+      - "ip ssh version 2"
+
+  - id: "CUSTOM-CAT1-003"
+    stig_id: "CUSTOM-CAT1-003"
+    severity: "CAT_I"
+    title: "Enable secret must use strong encryption"
+    description: "Enable secret must be configured with type 5 or higher encryption"
+    check_type: present
+    check_regex: "enable secret [5-9]"
+    config_lines:
+      - "enable secret"
+    fix_commands:
+      - "enable algorithm-type scrypt secret <PASSWORD>"
+
+  - id: "CUSTOM-CAT1-004"
+    stig_id: "CUSTOM-CAT1-004"
+    severity: "CAT_I"
+    title: "SNMPv1/v2c communities must be removed"
+    description: "Legacy SNMP community strings pose a security risk"
+    check_type: absent
+    config_lines:
+      - "snmp-server community"
+    fix_commands:
+      - "no snmp-server community public"
+      - "no snmp-server community private"
+
+  # ============================================================
+  # CAT II - Medium Severity
+  # ============================================================
+
+  - id: "CUSTOM-CAT2-001"
+    stig_id: "CUSTOM-CAT2-001"
+    severity: "CAT_II"
+    title: "VTY lines must use SSH only"
+    description: "Telnet must be disabled on VTY lines"
+    check_type: present
+    config_lines:
+      - "transport input ssh"
+    fix_commands:
+      - "line vty 0 15"
+      - " transport input ssh"
+
+  - id: "CUSTOM-CAT2-002"
+    stig_id: "CUSTOM-CAT2-002"
+    severity: "CAT_II"
+    title: "Exec timeout must be configured"
+    description: "Console and VTY sessions must have an idle timeout"
+    check_type: present
+    check_regex: "exec-timeout [1-9]"
+    config_lines:
+      - "exec-timeout"
+    fix_commands:
+      - "line con 0"
+      - " exec-timeout 10 0"
+      - "line vty 0 15"
+      - " exec-timeout 10 0"
+
+  - id: "CUSTOM-CAT2-003"
+    stig_id: "CUSTOM-CAT2-003"
+    severity: "CAT_II"
+    title: "NTP authentication must be enabled"
+    description: "Network time synchronization must be authenticated"
+    check_type: present
+    config_lines:
+      - "ntp authenticate"
+    fix_commands:
+      - "ntp authenticate"
+      - "ntp authentication-key 1 md5 <KEY>"
+      - "ntp trusted-key 1"
+
+  - id: "CUSTOM-CAT2-004"
+    stig_id: "CUSTOM-CAT2-004"
+    severity: "CAT_II"
+    title: "Syslog server must be configured"
+    description: "Logging must be sent to a central syslog server"
+    check_type: present
+    check_regex: "logging host [0-9]"
+    config_lines:
+      - "logging host"
+    fix_commands:
+      - "logging host <SYSLOG_SERVER>"
+      - "logging trap informational"
+
+  - id: "CUSTOM-CAT2-005"
+    stig_id: "CUSTOM-CAT2-005"
+    severity: "CAT_II"
+    title: "HTTP server must be disabled"
+    description: "The built-in HTTP server must be disabled"
+    check_type: absent
+    config_lines:
+      - "ip http server"
+    fix_commands:
+      - "no ip http server"
+      - "no ip http secure-server"
+
+  - id: "CUSTOM-CAT2-006"
+    stig_id: "CUSTOM-CAT2-006"
+    severity: "CAT_II"
+    title: "Source routing must be disabled"
+    description: "IP source routing must be disabled"
+    check_type: absent
+    check_regex: "^ip source-route$"
+    config_lines:
+      - "ip source-route"
+    fix_commands:
+      - "no ip source-route"
+
+  - id: "CUSTOM-CAT2-007"
+    stig_id: "CUSTOM-CAT2-007"
+    severity: "CAT_II"
+    title: "Password encryption must be enabled"
+    description: "Service password-encryption must be enabled"
+    check_type: present
+    config_lines:
+      - "service password-encryption"
+    fix_commands:
+      - "service password-encryption"
+
+  - id: "CUSTOM-CAT2-008"
+    stig_id: "CUSTOM-CAT2-008"
+    severity: "CAT_II"
+    title: "TCP keepalives must be enabled"
+    description: "TCP keepalives should be enabled for connection management"
+    check_type: present
+    config_lines:
+      - "service tcp-keepalives-in"
+      - "service tcp-keepalives-out"
+    fix_commands:
+      - "service tcp-keepalives-in"
+      - "service tcp-keepalives-out"
+
+  # ============================================================
+  # CAT III - Low Severity
+  # ============================================================
+
+  - id: "CUSTOM-CAT3-001"
+    stig_id: "CUSTOM-CAT3-001"
+    severity: "CAT_III"
+    title: "Login banner must be configured"
+    description: "A login banner must warn users of authorized access only"
+    check_type: present
+    config_lines:
+      - "banner login"
+    fix_commands:
+      - "banner login ^"
+      - "Authorized access only. All activities are monitored."
+      - "^"
+
+  - id: "CUSTOM-CAT3-002"
+    stig_id: "CUSTOM-CAT3-002"
+    severity: "CAT_III"
+    title: "CDP must be disabled globally"
+    description: "Cisco Discovery Protocol should be disabled for security"
+    check_type: absent
+    check_regex: "^cdp run$"
+    config_lines:
+      - "cdp run"
+    fix_commands:
+      - "no cdp run"
+
+  - id: "CUSTOM-CAT3-003"
+    stig_id: "CUSTOM-CAT3-003"
+    severity: "CAT_III"
+    title: "Timestamps must be enabled for logging"
+    description: "Log entries must include timestamps"
+    check_type: present
+    config_lines:
+      - "service timestamps log datetime"
+    fix_commands:
+      - "service timestamps log datetime msec localtime show-timezone"
+
+  - id: "CUSTOM-CAT3-004"
+    stig_id: "CUSTOM-CAT3-004"
+    severity: "CAT_III"
+    title: "Buffered logging must be configured"
+    description: "Local logging buffer should be configured"
+    check_type: present
+    check_regex: "logging buffered [0-9]+"
+    config_lines:
+      - "logging buffered"
+    fix_commands:
+      - "logging buffered 64000 informational"

@@ -1,0 +1,26 @@
+---
+# Archive previous STIG checklist files
+
+- name: Get current timestamp
+  set_fact:
+    archive_timestamp: "{{ ansible_date_time.iso8601_basic_short }}"
+
+- name: Ensure archive directory exists
+  file:
+    path: "{{ playbook_dir }}/stig_checklists/archive"
+    state: directory
+    mode: '0755'
+
+- name: Check for existing files in current directory
+  find:
+    paths: "{{ playbook_dir }}/stig_checklists/current"
+    patterns: "*.ckl,*.yml,*.yaml,*.txt"
+  register: current_stig_files
+
+- name: Archive existing STIG files
+  copy:
+    src: "{{ item.path }}"
+    dest: "{{ playbook_dir }}/stig_checklists/archive/{{ item.path | basename | splitext | first }}_{{ archive_timestamp }}{{ item.path | splitext | last }}"
+    remote_src: yes
+  loop: "{{ current_stig_files.files }}"
+  when: current_stig_files.files | length > 0

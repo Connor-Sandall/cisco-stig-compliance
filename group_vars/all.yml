@@ -1,0 +1,107 @@
+---
+# Global Variables for Cisco STIG Compliance Automation
+# These apply to all hosts unless overridden
+
+# ============================================================
+# STIG COMPLIANCE SETTINGS
+# ============================================================
+
+# Operation mode: 'check' for compliance check only, 'remediate' for auto-fix
+stig_operation_mode: check
+
+# Dry run mode - simulates changes without applying
+dry_run: false
+
+# STIG checklist source (path to .ckl or .txt file)
+# Set this via command line: -e "stig_checklist_file=/path/to/file"
+stig_checklist_file: "{{ playbook_dir }}/stig_checklists/current/cisco_ios_stig.ckl"
+
+# Text-based configuration rules file (alternative to CKL)
+stig_config_rules_file: "{{ playbook_dir }}/stig_checklists/current/config_rules.yml"
+
+# ============================================================
+# BACKUP SETTINGS
+# ============================================================
+
+backup_enabled: true
+backup_dir: "{{ playbook_dir }}/backups"
+backup_retention_days: 90
+
+# ============================================================
+# REPORT SETTINGS
+# ============================================================
+
+report_dir: "{{ playbook_dir }}/reports"
+report_format: html  # Options: html, json, text, all
+report_include_device_details: true
+report_include_remediation_commands: true
+
+# Report organization
+report_by_schedule:
+  daily: "{{ report_dir }}/daily"
+  weekly: "{{ report_dir }}/weekly"
+  monthly: "{{ report_dir }}/monthly"
+  manual: "{{ report_dir }}/manual"
+
+# ============================================================
+# LOGGING SETTINGS
+# ============================================================
+
+log_dir: "{{ playbook_dir }}/logs"
+log_level: INFO  # DEBUG, INFO, WARNING, ERROR
+
+# ============================================================
+# STIG CATEGORIES TO CHECK
+# ============================================================
+# Set to false to skip specific categories
+
+stig_check_categories:
+  aaa: true
+  ssh: true
+  console_vty: true
+  ntp: true
+  logging: true
+  banners: true
+  services: true
+  passwords: true
+  snmp: true
+  interfaces: true
+
+# ============================================================
+# STIG SEVERITY FILTER
+# ============================================================
+# Only process STIGs at or above this severity
+# Options: CAT_I, CAT_II, CAT_III
+
+stig_minimum_severity: CAT_III  # Process all severities
+
+# ============================================================
+# REMEDIATION SETTINGS
+# ============================================================
+
+# Require explicit approval before remediation
+remediation_require_approval: true
+
+# Auto-rollback on failure
+auto_rollback_enabled: true
+
+# Maximum devices to remediate in parallel
+remediation_batch_size: 5
+
+# Wait time between batches (seconds)
+remediation_batch_delay: 30
+
+# ============================================================
+# NOTIFICATION SETTINGS (Optional)
+# ============================================================
+
+notifications_enabled: false
+notification_email: ""
+notification_slack_webhook: ""
+
+# ============================================================
+# TIMESTAMPS
+# ============================================================
+
+timestamp: "{{ ansible_date_time.iso8601_basic_short | default(lookup('pipe', 'date +%Y%m%dT%H%M%S')) }}"
+date_stamp: "{{ ansible_date_time.date | default(lookup('pipe', 'date +%Y-%m-%d')) }}"

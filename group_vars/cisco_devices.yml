@@ -1,0 +1,166 @@
+---
+# Variables specific to Cisco devices
+# Credentials should be stored in vault.yml (encrypted)
+
+# ============================================================
+# CONNECTION SETTINGS
+# ============================================================
+
+ansible_connection: ansible.netcommon.network_cli
+ansible_network_os: cisco.ios.ios
+ansible_python_interpreter: auto_silent
+
+# Timeouts
+ansible_command_timeout: 60
+ansible_connect_timeout: 30
+ansible_persistent_command_timeout: 60
+ansible_persistent_connect_timeout: 30
+
+# Enable mode
+ansible_become: yes
+ansible_become_method: enable
+
+# ============================================================
+# STIG COMPLIANCE REQUIREMENTS
+# ============================================================
+
+# AAA Configuration
+stig_aaa:
+  enabled: true
+  tacacs_servers: []  # Define in host_vars or vault
+  radius_servers: []  # Define in host_vars or vault
+  local_fallback: true
+  authentication_methods:
+    - group tacacs+
+    - local
+
+# SSH Configuration
+stig_ssh:
+  version: 2
+  timeout: 60
+  authentication_retries: 3
+  rsa_key_size: 2048
+
+# Console/VTY Configuration
+stig_lines:
+  exec_timeout_minutes: 10
+  exec_timeout_seconds: 0
+  transport_input: ssh
+  vty_access_class: VTY_ACL
+  logging_synchronous: true
+
+# NTP Configuration
+stig_ntp:
+  authentication_enabled: true
+  servers: []  # Define in host_vars
+  source_interface: Loopback0
+
+# Logging Configuration
+stig_logging:
+  buffered_size: 64000
+  buffered_level: informational
+  console_level: critical
+  trap_level: informational
+  servers: []  # Define in host_vars
+  facility: local6
+
+# Banner Configuration
+stig_banners:
+  login_banner: |
+    You are accessing a U.S. Government (USG) Information System (IS) that is
+    provided for USG-authorized use only.
+
+    By using this IS (which includes any device attached to this IS), you consent
+    to the following conditions:
+
+    -The USG routinely intercepts and monitors communications on this IS for purposes
+    including, but not limited to, penetration testing, COMSEC monitoring, network
+    operations and defense, personnel misconduct (PM), law enforcement (LE), and
+    counterintelligence (CI) investigations.
+
+    -At any time, the USG may inspect and seize data stored on this IS.
+
+    -Communications using, or data stored on, this IS are not private, are subject
+    to routine monitoring, interception, and search, and may be disclosed or used
+    for any USG-authorized purpose.
+
+    -This IS includes security measures (e.g., authentication and access controls)
+    to protect USG interests--not for your personal benefit or privacy.
+
+    -Notwithstanding the above, using this IS does not constitute consent to PM, LE
+    or CI investigative searching or monitoring of the content of privileged
+    communications, or work product, related to personal representation or services
+    by attorneys, psychotherapists, or clergy, and their assistants. Such
+    communications and work product are private and confidential. See User Agreement
+    for details.
+
+  exec_banner: |
+    AUTHORIZED ACCESS ONLY
+    All activities are monitored and recorded.
+    Unauthorized access is prohibited and may result in disciplinary action
+    and/or criminal prosecution.
+
+# Services to Disable
+stig_disabled_services:
+  - ip http server
+  - ip http secure-server
+  - ip source-route
+  - ip bootp server
+  - service pad
+  - cdp run
+  - ip finger
+  - ip domain-lookup
+  - service tcp-small-servers
+  - service udp-small-servers
+
+# Services to Enable
+stig_enabled_services:
+  - service password-encryption
+  - service tcp-keepalives-in
+  - service tcp-keepalives-out
+  - service timestamps debug datetime msec localtime show-timezone
+  - service timestamps log datetime msec localtime show-timezone
+
+# SNMP Configuration (v3 only)
+stig_snmp:
+  version: 3
+  remove_v2_communities: true
+  groups: []  # Define in host_vars
+  users: []   # Define in host_vars
+
+# Interface Security
+stig_interface_security:
+  disable_proxy_arp: true
+  disable_directed_broadcast: true
+  disable_ip_unreachables: true
+  disable_ip_redirects: true
+  disable_cdp_external: true
+
+# Password Requirements
+stig_passwords:
+  algorithm_type: scrypt  # scrypt (IOS 15.3+), sha256, md5
+  minimum_length: 15
+  enable_password_encryption: true
+
+# ============================================================
+# EXTERNAL INTERFACES
+# ============================================================
+# Define interfaces facing external/untrusted networks
+# These receive additional hardening
+
+external_interfaces: []
+# Example:
+# external_interfaces:
+#   - GigabitEthernet0/0
+#   - GigabitEthernet0/1
+
+# ============================================================
+# UNUSED INTERFACES
+# ============================================================
+# Interfaces to be administratively disabled
+
+unused_interfaces: []
+# Example:
+# unused_interfaces:
+#   - GigabitEthernet0/10
+#   - GigabitEthernet0/11

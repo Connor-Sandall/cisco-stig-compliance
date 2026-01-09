@@ -1,0 +1,13 @@
+---
+# Remediate items by severity level
+
+- name: Get items for severity {{ remediation_severity }}
+  set_fact:
+    severity_items: "{{ items_to_remediate | selectattr('severity', 'equalto', remediation_severity) | list }}"
+
+- name: Process {{ remediation_severity }} items
+  include_tasks: apply_fix.yml
+  loop: "{{ severity_items }}"
+  loop_control:
+    loop_var: fix_item
+  when: severity_items | length > 0

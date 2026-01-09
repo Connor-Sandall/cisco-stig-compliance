@@ -1,0 +1,15 @@
+---
+# STIG Parser Role Variables
+
+# Default STIG source file path
+stig_source_file: "{{ stig_checklist_file | default(playbook_dir + '/stig_checklists/current/cisco_ios_stig.ckl') }}"
+
+# Severity filter - empty means all severities
+stig_severity_filter: []
+
+# Archive settings
+archive_previous_stig: false
+
+# Auto-mapping settings
+enable_auto_mapping: true
+auto_mapping_confidence_threshold: 0.7

@@ -1,0 +1,69 @@
+---
+# Backup Role - Main Tasks
+# Backs up device configurations before compliance checks or remediation
+
+- name: Set backup timestamp
+  set_fact:
+    backup_timestamp: "{{ ansible_date_time.iso8601_basic_short }}"
+
+- name: Set backup filename
+  set_fact:
+    backup_filename: "{{ inventory_hostname }}_{{ backup_label | default('backup') }}_{{ backup_timestamp }}.cfg"
+    backup_path: "{{ backup_dir }}/{{ inventory_hostname }}"
+
+- name: Ensure backup directory exists
+  delegate_to: localhost
+  file:
+    path: "{{ backup_path }}"
+    state: directory
+    mode: '0755'
+
+- name: Backup running configuration
+  cisco.ios.ios_config:
+    backup: yes
+    backup_options:
+      filename: "{{ backup_filename }}"
+      dir_path: "{{ backup_path }}"
+  register: backup_result
+
+- name: Store backup file path for potential rollback
+  set_fact:
+    backup_file_path: "{{ backup_path }}/{{ backup_filename }}"
+    last_backup_path: "{{ backup_path }}/{{ backup_filename }}"
+
+- name: Get startup configuration
+  cisco.ios.ios_command:
+    commands:
+      - show startup-config
+  register: startup_config
+  when: backup_startup_config | default(true)
+
+- name: Save startup configuration
+  delegate_to: localhost
+  copy:
+    content: "{{ startup_config.stdout[0] }}"
+    dest: "{{ backup_path }}/{{ inventory_hostname }}_startup_{{ backup_timestamp }}.cfg"
+  when:
+    - backup_startup_config | default(true)
+    - startup_config is defined
+
+- name: Create backup metadata
+  delegate_to: localhost
+  copy:
+    content: |
+      ---
+      hostname: {{ inventory_hostname }}
+      backup_time: {{ backup_timestamp }}
+      backup_type: {{ backup_label | default('manual') }}
+      ansible_host: {{ ansible_host | default(inventory_hostname) }}
+      backup_file: {{ backup_filename }}
+      stig_checklist: {{ stig_source_file | default('N/A') }}
+    dest: "{{ backup_path }}/{{ inventory_hostname }}_{{ backup_timestamp }}_metadata.yml"
+
+- name: Report backup status
+  debug:
+    msg: "Configuration backed up to {{ backup_file_path }}"
+
+- name: Clean old backups
+  include_tasks: cleanup_backups.yml
+  when: backup_retention_days | default(90) > 0

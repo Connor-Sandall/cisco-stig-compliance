@@ -1,0 +1,55 @@
+---
+# Scheduled Compliance Check Playbook
+# Designed to be run via cron/Task Scheduler
+#
+# Usage:
+#   # Daily check:
+#   ansible-playbook playbooks/scheduled_check.yml -e "schedule_type=daily"
+#
+#   # Weekly check:
+#   ansible-playbook playbooks/scheduled_check.yml -e "schedule_type=weekly"
+#
+#   # Monthly check:
+#   ansible-playbook playbooks/scheduled_check.yml -e "schedule_type=monthly"
+
+- name: Scheduled STIG Compliance Check
+  hosts: cisco_devices
+  gather_facts: no
+  serial: "{{ batch_size | default(20) }}"
+
+  vars:
+    stig_operation_mode: check
+    schedule_type: "{{ schedule_type | default('daily') }}"
+    remediation_require_approval: false  # No interaction for scheduled runs
+
+  tasks:
+    - name: Parse STIG checklist
+      include_role:
+        name: stig_parser
+      vars:
+        stig_source_file: "{{ stig_checklist_file | default(playbook_dir + '/../stig_checklists/current/cisco_ios_stig.ckl') }}"
+
+    - name: Run compliance checks
+      include_role:
+        name: compliance_check
+
+    - name: Generate reports
+      include_role:
+        name: report_generator
+      vars:
+        report_schedule_type: "{{ schedule_type }}"
+        generate_executive_summary: true
+
+  post_tasks:
+    - name: Clean old reports
+      include_tasks: "{{ playbook_dir }}/../roles/report_generator/tasks/cleanup_reports.yml"
+      delegate_to: localhost
+      run_once: true
+
+    - name: Log completion
+      delegate_to: localhost
+      run_once: true
+      lineinfile:
+        path: "{{ playbook_dir }}/../logs/scheduled_runs.log"
+        line: "{{ ansible_date_time.iso8601 }} | {{ schedule_type }} | Devices: {{ ansible_play_hosts | length }} | Score: {{ overall_stats.overall_percentage | default('N/A') }}%"
+        create: yes

@@ -1,0 +1,26 @@
+---
+# Clean up old backup files based on retention policy
+
+- name: Find old backup files
+  delegate_to: localhost
+  find:
+    paths: "{{ backup_path }}"
+    age: "{{ backup_retention_days }}d"
+    recurse: no
+    patterns:
+      - "*.cfg"
+      - "*_metadata.yml"
+  register: old_backups
+
+- name: Remove old backups
+  delegate_to: localhost
+  file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ old_backups.files }}"
+  when: old_backups.files | length > 0
+
+- name: Report cleanup
+  debug:
+    msg: "Cleaned up {{ old_backups.files | length }} old backup files"
+  when: old_backups.files | length > 0

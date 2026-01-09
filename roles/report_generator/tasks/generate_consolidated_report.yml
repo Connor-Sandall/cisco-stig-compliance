@@ -1,0 +1,56 @@
+---
+# Generate consolidated report for all devices
+
+- name: Set consolidated report filename
+  set_fact:
+    consolidated_report_file: "{{ report_output_dir }}/consolidated_compliance_{{ report_timestamp }}"
+
+- name: Calculate overall statistics
+  set_fact:
+    overall_stats:
+      total_devices: "{{ all_compliance_results | default({}) | length }}"
+      total_checks: "{{ all_compliance_results | default({}) | dict2items | map(attribute='value.summary.total_checks') | sum }}"
+      total_compliant: "{{ all_compliance_results | default({}) | dict2items | map(attribute='value.summary.compliant') | sum }}"
+      total_non_compliant: "{{ all_compliance_results | default({}) | dict2items | map(attribute='value.summary.non_compliant') | sum }}"
+      devices_100_compliant: "{{ all_compliance_results | default({}) | dict2items | selectattr('value.summary.compliance_percentage', 'equalto', 100) | list | length }}"
+
+- name: Calculate overall compliance percentage
+  set_fact:
+    overall_stats: "{{ overall_stats | combine({'overall_percentage': ((overall_stats.total_compliant | int) / (overall_stats.total_checks | int) * 100) | round(2) if (overall_stats.total_checks | int) > 0 else 0}) }}"
+
+- name: Generate consolidated HTML report
+  delegate_to: localhost
+  template:
+    src: consolidated_report.html.j2
+    dest: "{{ consolidated_report_file }}.html"
+  when: report_format in ['html', 'all']
+
+- name: Generate consolidated JSON report
+  delegate_to: localhost
+  copy:
+    content: "{{ consolidated_data | to_nice_json }}"
+    dest: "{{ consolidated_report_file }}.json"
+  vars:
+    consolidated_data:
+      report_info:
+        generated: "{{ ansible_date_time.iso8601 }}"
+        report_type: "consolidated_compliance"
+        stig_source: "{{ stig_source_file | default('N/A') }}"
+        stig_metadata: "{{ stig_metadata | default({}) }}"
+      overall_stats: "{{ overall_stats }}"
+      devices: "{{ all_compliance_results | default({}) }}"
+  when: report_format in ['json', 'all']
+
+- name: Generate executive summary
+  delegate_to: localhost
+  template:
+    src: executive_summary.html.j2
+    dest: "{{ report_output_dir }}/executive_summary_{{ report_timestamp }}.html"
+  when: generate_executive_summary | default(true)
+
+- name: Report consolidated report complete
+  debug:
+    msg: |
+      Consolidated report generated: {{ consolidated_report_file }}
+      Overall Compliance: {{ overall_stats.overall_percentage }}%
+      Devices at 100%: {{ overall_stats.devices_100_compliant }}/{{ overall_stats.total_devices }}

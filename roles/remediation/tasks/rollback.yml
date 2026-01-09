@@ -1,0 +1,36 @@
+---
+# Rollback configuration to pre-remediation state
+
+- name: Check for backup file
+  stat:
+    path: "{{ backup_file_path | default('') }}"
+  register: backup_check
+  delegate_to: localhost
+
+- name: Perform rollback
+  when: backup_check.stat.exists | default(false)
+  block:
+    - name: Load backup configuration
+      slurp:
+        src: "{{ backup_file_path }}"
+      register: backup_content
+      delegate_to: localhost
+
+    - name: Apply rollback configuration
+      cisco.ios.ios_config:
+        src: "{{ backup_file_path }}"
+        replace: config
+      register: rollback_result
+
+    - name: Save rolled back configuration
+      cisco.ios.ios_config:
+        save_when: always
+
+    - name: Report rollback status
+      debug:
+        msg: "Configuration rolled back successfully for {{ inventory_hostname }}"
+
+- name: Report missing backup
+  debug:
+    msg: "WARNING: No backup file found for rollback. Manual intervention may be required."
+  when: not (backup_check.stat.exists | default(false))

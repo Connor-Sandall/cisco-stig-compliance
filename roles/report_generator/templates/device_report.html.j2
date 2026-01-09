@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STIG Compliance Report - {{ inventory_hostname }}</title>
+    <style>
+        :root {
+            --color-compliant: #28a745;
+            --color-non-compliant: #dc3545;
+            --color-cat-i: #dc3545;
+            --color-cat-ii: #fd7e14;
+            --color-cat-iii: #ffc107;
+            --color-header: #343a40;
+            --color-border: #dee2e6;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f8f9fa;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: var(--color-header);
+            color: white;
+            padding: 30px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .header-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .summary-section {
+            padding: 30px;
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .score-card {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+            margin-bottom: 20px;
+        }
+
+        .score-circle {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            font-weight: bold;
+            color: white;
+        }
+
+        .score-compliant { background: var(--color-compliant); }
+        .score-partial { background: var(--color-cat-ii); }
+        .score-non-compliant { background: var(--color-non-compliant); }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+
+        .stat-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+        }
+
+        .findings-section {
+            padding: 30px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--color-header);
+        }
+
+        .finding-card {
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+
+        .finding-header {
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .finding-header.compliant {
+            background: #d4edda;
+            border-left: 4px solid var(--color-compliant);
+        }
+
+        .finding-header.non-compliant {
+            background: #f8d7da;
+            border-left: 4px solid var(--color-non-compliant);
+        }
+
+        .finding-title {
+            font-weight: 600;
+        }
+
+        .finding-id {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .severity-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+        }
+
+        .severity-cat-i { background: var(--color-cat-i); }
+        .severity-cat-ii { background: var(--color-cat-ii); }
+        .severity-cat-iii { background: var(--color-cat-iii); color: #333; }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .status-compliant {
+            background: var(--color-compliant);
+            color: white;
+        }
+
+        .status-non-compliant {
+            background: var(--color-non-compliant);
+            color: white;
+        }
+
+        .finding-details {
+            padding: 15px;
+            background: #f8f9fa;
+            display: none;
+        }
+
+        .finding-details.show {
+            display: block;
+        }
+
+        .detail-row {
+            margin-bottom: 10px;
+        }
+
+        .detail-label {
+            font-weight: 600;
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+
+        .footer {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-top: 1px solid var(--color-border);
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+        }
+
+        .badge-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            .container {
+                box-shadow: none;
+            }
+            .finding-details {
+                display: block !important;
+            }
+        }
+    </style>
+    <script>
+        function toggleDetails(id) {
+            var details = document.getElementById(id);
+            details.classList.toggle('show');
+        }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>STIG Compliance Report</h1>
+            <div class="header-meta">
+                <span><strong>Device:</strong> {{ inventory_hostname }}</span>
+                <span><strong>Generated:</strong> {{ ansible_date_time.iso8601 }}</span>
+                {% if device_info is defined %}
+                <span><strong>Model:</strong> {{ device_info.model | default('N/A') }}</span>
+                <span><strong>Version:</strong> {{ device_info.version | default('N/A') }}</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="summary-section">
+            <div class="score-card">
+                {% set score = device_compliance_summary.compliance_percentage | default(0) | float %}
+                <div class="score-circle {% if score >= 90 %}score-compliant{% elif score >= 70 %}score-partial{% else %}score-non-compliant{% endif %}">
+                    {{ score }}%
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <div class="stat-value">{{ device_compliance_summary.total_checks | default(0) }}</div>
+                        <div class="stat-label">Total Checks</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" style="color: var(--color-compliant)">{{ device_compliance_summary.compliant | default(0) }}</div>
+                        <div class="stat-label">Compliant</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" style="color: var(--color-non-compliant)">{{ device_compliance_summary.non_compliant | default(0) }}</div>
+                        <div class="stat-label">Non-Compliant</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="findings-section">
+            <h2 class="section-title">Non-Compliant Findings</h2>
+            {% for result in device_compliance_results | selectattr('compliant', 'equalto', false) | list %}
+            <div class="finding-card">
+                <div class="finding-header non-compliant" onclick="toggleDetails('finding-{{ loop.index }}')">
+                    <div>
+                        <div class="finding-title">{{ result.title }}</div>
+                        <div class="finding-id">{{ result.stig_id }} {% if result.vuln_id %}| {{ result.vuln_id }}{% endif %}</div>
+                    </div>
+                    <div class="badge-group">
+                        <span class="severity-badge severity-{{ result.severity | lower | replace('_', '-') }}">{{ result.severity }}</span>
+                        <span class="status-badge status-non-compliant">Non-Compliant</span>
+                    </div>
+                </div>
+                <div class="finding-details" id="finding-{{ loop.index }}">
+                    <div class="detail-row">
+                        <div class="detail-label">Details</div>
+                        <div>{{ result.details }}</div>
+                    </div>
+                    {% if result.current_config %}
+                    <div class="detail-row">
+                        <div class="detail-label">Current Configuration</div>
+                        <div class="code-block">{{ result.current_config | truncate(500) }}</div>
+                    </div>
+                    {% endif %}
+                    {% if result.fix_commands and report_include_remediation_commands | default(true) %}
+                    <div class="detail-row">
+                        <div class="detail-label">Remediation Commands</div>
+                        <div class="code-block">{% for cmd in result.fix_commands %}{{ cmd }}
+{% endfor %}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% else %}
+            <p style="color: var(--color-compliant); font-weight: bold;">All checks passed! No non-compliant findings.</p>
+            {% endfor %}
+        </div>
+
+        <div class="findings-section">
+            <h2 class="section-title">Compliant Items</h2>
+            {% for result in device_compliance_results | selectattr('compliant', 'equalto', true) | list %}
+            <div class="finding-card">
+                <div class="finding-header compliant" onclick="toggleDetails('compliant-{{ loop.index }}')">
+                    <div>
+                        <div class="finding-title">{{ result.title }}</div>
+                        <div class="finding-id">{{ result.stig_id }}</div>
+                    </div>
+                    <div class="badge-group">
+                        <span class="severity-badge severity-{{ result.severity | lower | replace('_', '-') }}">{{ result.severity }}</span>
+                        <span class="status-badge status-compliant">Compliant</span>
+                    </div>
+                </div>
+                <div class="finding-details" id="compliant-{{ loop.index }}">
+                    <div class="detail-row">
+                        <div class="detail-label">Details</div>
+                        <div>{{ result.details }}</div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="footer">
+            <p>Generated by Cisco STIG Compliance Automation Tool | {{ ansible_date_time.iso8601 }}</p>
+            <p>STIG Source: {{ stig_source_file | default('N/A') }}</p>
+        </div>
+    </div>
+</body>
+</html>

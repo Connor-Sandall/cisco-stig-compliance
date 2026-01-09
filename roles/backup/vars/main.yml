@@ -1,0 +1,17 @@
+---
+# Backup Role Variables
+
+# Base backup directory
+backup_dir: "{{ playbook_dir }}/backups"
+
+# Backup label prefix
+backup_label: "backup"
+
+# Also backup startup configuration
+backup_startup_config: true
+
+# Retention period in days (0 = keep forever)
+backup_retention_days: 90
+
+# Create metadata file with backup
+create_backup_metadata: true

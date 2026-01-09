@@ -1,0 +1,96 @@
+---
+# Remediation Playbook
+# Checks Cisco devices and automatically fixes non-compliant configurations
+#
+# Usage:
+#   # Remediate all devices (with approval prompts):
+#   ansible-playbook playbooks/remediation.yml
+#
+#   # Remediate without approval prompts:
+#   ansible-playbook playbooks/remediation.yml -e "remediation_require_approval=false"
+#
+#   # Dry run (show what would be changed):
+#   ansible-playbook playbooks/remediation.yml -e "dry_run=true"
+#
+#   # Remediate specific devices:
+#   ansible-playbook playbooks/remediation.yml --limit router01
+#
+#   # Skip backup:
+#   ansible-playbook playbooks/remediation.yml -e "backup_before_remediation=false"
+
+- name: Cisco STIG Compliance Remediation
+  hosts: cisco_devices
+  gather_facts: no
+  serial: 1  # Process one device at a time for safety
+
+  vars:
+    stig_operation_mode: remediate
+    remediation_require_approval: true
+    backup_before_remediation: true
+    verify_after_remediation: true
+
+  pre_tasks:
+    - name: Display remediation warning
+      run_once: true
+      delegate_to: localhost
+      debug:
+        msg: |
+          =====================================================
+          WARNING: STIG COMPLIANCE REMEDIATION
+          =====================================================
+          This playbook will MODIFY device configurations!
+
+          Operation Mode: {{ stig_operation_mode }}
+          Dry Run: {{ dry_run | default(false) }}
+          Require Approval: {{ remediation_require_approval }}
+          Auto Backup: {{ backup_before_remediation }}
+
+          Target Hosts: {{ ansible_play_hosts | length }}
+          =====================================================
+
+    - name: Confirm remediation
+      run_once: true
+      pause:
+        prompt: |
+
+          Press ENTER to continue with remediation, or Ctrl+C to abort
+      when: remediation_require_approval | default(true)
+
+  tasks:
+    - name: Parse STIG checklist
+      include_role:
+        name: stig_parser
+      vars:
+        stig_source_file: "{{ stig_checklist_file | default(playbook_dir + '/../stig_checklists/current/cisco_ios_stig.ckl') }}"
+
+    - name: Run compliance checks
+      include_role:
+        name: compliance_check
+
+    - name: Execute remediation
+      include_role:
+        name: remediation
+
+    - name: Generate post-remediation reports
+      include_role:
+        name: report_generator
+      vars:
+        report_schedule_type: "manual"
+
+  post_tasks:
+    - name: Display remediation summary
+      run_once: true
+      delegate_to: localhost
+      debug:
+        msg: |
+          =====================================================
+          Remediation Complete
+          =====================================================
+          {% if all_compliance_results is defined %}
+          Devices Processed: {{ all_compliance_results | length }}
+          {% for host, data in all_compliance_results.items() %}
+          {{ host }}: {{ data.summary.compliance_percentage }}%
+          {% endfor %}
+          {% endif %}
+          Reports saved to: {{ report_dir }}/manual
+          =====================================================

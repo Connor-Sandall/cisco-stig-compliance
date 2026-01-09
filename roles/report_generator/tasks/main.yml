@@ -1,0 +1,38 @@
+---
+# Report Generator Role - Main Tasks
+# Generates compliance reports in various formats
+
+- name: Set report timestamp
+  set_fact:
+    report_timestamp: "{{ ansible_date_time.iso8601_basic_short }}"
+    report_date: "{{ ansible_date_time.date }}"
+  run_once: true
+  delegate_to: localhost
+
+- name: Determine report output directory
+  set_fact:
+    report_output_dir: "{{ report_dir }}/{{ report_schedule_type | default('manual') }}/{{ report_date }}"
+  run_once: true
+  delegate_to: localhost
+
+- name: Ensure report directory exists
+  delegate_to: localhost
+  run_once: true
+  file:
+    path: "{{ report_output_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Generate device report
+  include_tasks: generate_device_report.yml
+  when: generate_device_reports | default(true)
+
+- name: Generate consolidated report
+  include_tasks: generate_consolidated_report.yml
+  run_once: true
+  when: generate_consolidated_report | default(true)
+
+- name: Create latest report symlink
+  include_tasks: create_symlinks.yml
+  run_once: true
+  delegate_to: localhost

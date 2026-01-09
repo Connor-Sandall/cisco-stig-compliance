@@ -1,0 +1,32 @@
+---
+# Verify remediation was successful by re-running compliance checks
+
+- name: Re-gather running configuration
+  cisco.ios.ios_command:
+    commands:
+      - show running-config
+  register: post_remediation_config
+
+- name: Re-run compliance checks
+  include_role:
+    name: compliance_check
+  vars:
+    running_config: "{{ post_remediation_config.stdout[0] }}"
+    backup_before_check: false
+
+- name: Compare pre and post remediation results
+  set_fact:
+    verification_summary:
+      pre_compliant: "{{ items_to_remediate | length }}"
+      post_compliant: "{{ device_compliance_results | selectattr('compliant', 'equalto', true) | list | length }}"
+      still_non_compliant: "{{ device_compliance_results | selectattr('compliant', 'equalto', false) | list | length }}"
+      remediation_effective: "{{ (device_compliance_results | selectattr('compliant', 'equalto', true) | list | length) > (items_to_remediate | length) }}"
+
+- name: Display verification results
+  debug:
+    msg: |
+      === Remediation Verification ===
+      Previously non-compliant: {{ verification_summary.pre_compliant }}
+      Now compliant: {{ verification_summary.post_compliant }}
+      Still non-compliant: {{ verification_summary.still_non_compliant }}
+      Remediation effective: {{ verification_summary.remediation_effective }}

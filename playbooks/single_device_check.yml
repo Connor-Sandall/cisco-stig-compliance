@@ -1,0 +1,52 @@
+---
+# Single Device Compliance Check
+# Quick check for a single device
+#
+# Usage:
+#   ansible-playbook playbooks/single_device_check.yml -e "target_host=switch01"
+
+- name: Single Device STIG Compliance Check
+  hosts: "{{ target_host | default('localhost') }}"
+  gather_facts: no
+
+  vars:
+    stig_operation_mode: check
+    generate_consolidated_report: false
+
+  pre_tasks:
+    - name: Validate target host
+      fail:
+        msg: "Please specify target_host: ansible-playbook playbooks/single_device_check.yml -e 'target_host=switch01'"
+      when: target_host is not defined
+      delegate_to: localhost
+
+  tasks:
+    - name: Parse STIG checklist
+      include_role:
+        name: stig_parser
+      vars:
+        stig_source_file: "{{ stig_checklist_file | default(playbook_dir + '/../stig_checklists/current/cisco_ios_stig.ckl') }}"
+
+    - name: Run compliance check
+      include_role:
+        name: compliance_check
+
+    - name: Generate device report
+      include_role:
+        name: report_generator
+      vars:
+        generate_consolidated_report: false
+        report_schedule_type: "manual"
+
+  post_tasks:
+    - name: Display results
+      debug:
+        msg: |
+          =====================================================
+          Compliance Results for {{ inventory_hostname }}
+          =====================================================
+          Total Checks: {{ device_compliance_summary.total_checks }}
+          Compliant: {{ device_compliance_summary.compliant }}
+          Non-Compliant: {{ device_compliance_summary.non_compliant }}
+          Score: {{ device_compliance_summary.compliance_percentage }}%
+          =====================================================

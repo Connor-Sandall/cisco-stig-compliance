@@ -1,0 +1,76 @@
+---
+# Compliance Check Role - Main Tasks
+# Checks device configuration against STIG requirements
+
+- name: Initialize compliance results
+  set_fact:
+    device_compliance_results: []
+    device_compliance_summary:
+      hostname: "{{ inventory_hostname }}"
+      timestamp: "{{ ansible_date_time.iso8601 }}"
+      total_checks: 0
+      compliant: 0
+      non_compliant: 0
+      not_applicable: 0
+      errors: 0
+
+- name: Gather device facts
+  cisco.ios.ios_facts:
+    gather_subset:
+      - hardware
+      - config
+  register: device_facts
+  when: gather_device_facts | default(true)
+
+- name: Store device information
+  set_fact:
+    device_info:
+      hostname: "{{ device_facts.ansible_facts.ansible_net_hostname | default(inventory_hostname) }}"
+      model: "{{ device_facts.ansible_facts.ansible_net_model | default('Unknown') }}"
+      version: "{{ device_facts.ansible_facts.ansible_net_version | default('Unknown') }}"
+      serialnum: "{{ device_facts.ansible_facts.ansible_net_serialnum | default('Unknown') }}"
+  when: device_facts is defined
+
+- name: Backup configuration before checks
+  include_role:
+    name: backup
+  when: backup_before_check | default(true)
+
+- name: Get running configuration
+  cisco.ios.ios_command:
+    commands:
+      - show running-config
+  register: running_config_output
+
+- name: Store running configuration
+  set_fact:
+    running_config: "{{ running_config_output.stdout[0] }}"
+
+- name: Process compliance checks by category
+  include_tasks: check_category.yml
+  loop: "{{ stig_check_categories | dict2items | selectattr('value', 'equalto', true) | map(attribute='key') | list }}"
+  loop_control:
+    loop_var: check_category
+  when: compliance_checks is defined and compliance_checks | length > 0
+
+- name: Calculate compliance summary
+  set_fact:
+    device_compliance_summary: "{{ device_compliance_summary | combine({
+      'total_checks': device_compliance_results | length,
+      'compliant': device_compliance_results | selectattr('compliant', 'equalto', true) | list | length,
+      'non_compliant': device_compliance_results | selectattr('compliant', 'equalto', false) | list | length,
+      'compliance_percentage': ((device_compliance_results | selectattr('compliant', 'equalto', true) | list | length) / (device_compliance_results | length) * 100) | round(2) if device_compliance_results | length > 0 else 0
+    }) }}"
+
+- name: Display compliance summary
+  debug:
+    msg: |
+      === Compliance Summary for {{ inventory_hostname }} ===
+      Total Checks: {{ device_compliance_summary.total_checks }}
+      Compliant: {{ device_compliance_summary.compliant }}
+      Non-Compliant: {{ device_compliance_summary.non_compliant }}
+      Compliance Score: {{ device_compliance_summary.compliance_percentage }}%
+
+- name: Store results for reporting
+  set_fact:
+    all_compliance_results: "{{ all_compliance_results | default({}) | combine({inventory_hostname: {'results': device_compliance_results, 'summary': device_compliance_summary, 'device_info': device_info | default({})}}) }}"

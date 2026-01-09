@@ -1,0 +1,27 @@
+---
+# Build the mapping between STIG rules and Cisco configuration checks
+
+- name: Load STIG to config mapping
+  delegate_to: localhost
+  include_vars:
+    file: "{{ role_path }}/vars/stig_config_mapping.yml"
+    name: stig_config_map
+
+- name: Initialize compliance checks list
+  set_fact:
+    compliance_checks: []
+
+- name: Build compliance checks from STIG rules
+  include_tasks: map_single_rule.yml
+  loop: "{{ stig_rules }}"
+  loop_control:
+    loop_var: stig_rule
+  when: stig_rules is defined and stig_rules | length > 0
+
+- name: Report check mapping summary
+  debug:
+    msg: |
+      Compliance Check Mapping Complete:
+      - Total STIG Rules: {{ stig_rules | length }}
+      - Mapped Checks: {{ compliance_checks | length }}
+      - Unmapped Rules: {{ (stig_rules | length) - (compliance_checks | length) }}

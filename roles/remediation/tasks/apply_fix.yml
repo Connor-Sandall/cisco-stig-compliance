@@ -1,0 +1,63 @@
+---
+# Apply fix commands for a single non-compliant item
+
+- name: "Remediate {{ fix_item.stig_id }}: {{ fix_item.title }}"
+  block:
+    - name: Check if fix commands are available
+      when: fix_item.fix_commands | default([]) | length == 0
+      set_fact:
+        fix_result:
+          stig_id: "{{ fix_item.stig_id }}"
+          success: false
+          message: "No fix commands available"
+          commands_applied: []
+
+    - name: Apply fix commands
+      when: fix_item.fix_commands | default([]) | length > 0
+      block:
+        - name: Display fix commands (dry run)
+          debug:
+            msg: |
+              [DRY RUN] Would apply commands for {{ fix_item.stig_id }}:
+              {% for cmd in fix_item.fix_commands %}
+              {{ cmd }}
+              {% endfor %}
+          when: dry_run | default(false)
+
+        - name: Apply configuration commands
+          cisco.ios.ios_config:
+            lines: "{{ fix_item.fix_commands }}"
+          register: config_result
+          when: not (dry_run | default(false))
+
+        - name: Set successful fix result
+          set_fact:
+            fix_result:
+              stig_id: "{{ fix_item.stig_id }}"
+              success: true
+              message: "Fix applied successfully"
+              commands_applied: "{{ fix_item.fix_commands }}"
+              changed: "{{ config_result.changed | default(false) }}"
+
+    - name: Add result to remediation results
+      set_fact:
+        remediation_results: "{{ remediation_results + [fix_result] }}"
+
+  rescue:
+    - name: Handle remediation failure
+      set_fact:
+        fix_result:
+          stig_id: "{{ fix_item.stig_id }}"
+          success: false
+          message: "Remediation failed: {{ ansible_failed_result.msg | default('Unknown error') }}"
+          commands_applied: []
+
+    - name: Add failure result
+      set_fact:
+        remediation_results: "{{ remediation_results + [fix_result] }}"
+
+    - name: Check if rollback is needed
+      include_tasks: rollback.yml
+      when:
+        - auto_rollback_enabled | default(true)
+        - rollback_on_failure | default(true)

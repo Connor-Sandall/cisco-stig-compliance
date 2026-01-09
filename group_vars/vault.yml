@@ -1,0 +1,35 @@
+---
+# ENCRYPTED VAULT FILE FOR CREDENTIALS
+#
+# This file should be encrypted with ansible-vault!
+#
+# To encrypt: ansible-vault encrypt group_vars/vault.yml
+# To edit: ansible-vault edit group_vars/vault.yml
+# To view: ansible-vault view group_vars/vault.yml
+#
+# IMPORTANT: Replace these placeholder values with your actual credentials
+#            Then encrypt this file before use!
+
+# Device Credentials
+vault_cisco_username: "admin"
+vault_cisco_password: "CHANGE_ME_AND_ENCRYPT"
+vault_cisco_enable_password: "CHANGE_ME_AND_ENCRYPT"
+
+# AAA Server Credentials (if using TACACS+/RADIUS)
+vault_tacacs_key: "CHANGE_ME_AND_ENCRYPT"
+vault_radius_key: "CHANGE_ME_AND_ENCRYPT"
+
+# NTP Authentication Keys
+vault_ntp_keys:
+  - id: 1
+    key: "CHANGE_ME_AND_ENCRYPT"
+  - id: 2
+    key: "CHANGE_ME_AND_ENCRYPT"
+
+# SNMP v3 Credentials
+vault_snmp_auth_password: "CHANGE_ME_AND_ENCRYPT"
+vault_snmp_priv_password: "CHANGE_ME_AND_ENCRYPT"
+
+# Notification Credentials (Optional)
+vault_email_password: ""
+vault_slack_token: ""

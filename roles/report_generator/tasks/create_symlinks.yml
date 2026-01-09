@@ -1,0 +1,39 @@
+---
+# Create symlinks to latest reports for easy access
+
+- name: Ensure latest directory exists
+  file:
+    path: "{{ report_dir }}/latest"
+    state: directory
+    mode: '0755'
+
+- name: Find latest consolidated report
+  find:
+    paths: "{{ report_output_dir }}"
+    patterns: "consolidated_compliance_*.html"
+  register: latest_consolidated
+
+- name: Copy latest consolidated report
+  copy:
+    src: "{{ (latest_consolidated.files | sort(attribute='mtime') | last).path }}"
+    dest: "{{ report_dir }}/latest/consolidated_report.html"
+    remote_src: yes
+  when: latest_consolidated.files | length > 0
+
+- name: Find latest executive summary
+  find:
+    paths: "{{ report_output_dir }}"
+    patterns: "executive_summary_*.html"
+  register: latest_executive
+
+- name: Copy latest executive summary
+  copy:
+    src: "{{ (latest_executive.files | sort(attribute='mtime') | last).path }}"
+    dest: "{{ report_dir }}/latest/executive_summary.html"
+    remote_src: yes
+  when: latest_executive.files | length > 0
+
+- name: Create report index
+  template:
+    src: report_index.html.j2
+    dest: "{{ report_dir }}/index.html"

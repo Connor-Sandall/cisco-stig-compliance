@@ -1,0 +1,83 @@
+---
+# Clean up old report files based on retention policy
+
+- name: Get retention settings
+  set_fact:
+    retention_days:
+      daily: "{{ report_retention.daily | default(30) }}"
+      weekly: "{{ report_retention.weekly | default(84) }}"
+      monthly: "{{ report_retention.monthly | default(365) }}"
+      manual: "{{ report_retention.manual | default(90) }}"
+
+- name: Find and remove old daily reports
+  find:
+    paths: "{{ report_dir }}/daily"
+    age: "{{ retention_days.daily }}d"
+    recurse: yes
+  register: old_daily_reports
+  ignore_errors: yes
+
+- name: Remove old daily reports
+  file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ old_daily_reports.files | default([]) }}"
+  when: old_daily_reports.files | default([]) | length > 0
+
+- name: Find and remove old weekly reports
+  find:
+    paths: "{{ report_dir }}/weekly"
+    age: "{{ retention_days.weekly }}d"
+    recurse: yes
+  register: old_weekly_reports
+  ignore_errors: yes
+
+- name: Remove old weekly reports
+  file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ old_weekly_reports.files | default([]) }}"
+  when: old_weekly_reports.files | default([]) | length > 0
+
+- name: Find and remove old monthly reports
+  find:
+    paths: "{{ report_dir }}/monthly"
+    age: "{{ retention_days.monthly }}d"
+    recurse: yes
+  register: old_monthly_reports
+  ignore_errors: yes
+
+- name: Remove old monthly reports
+  file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ old_monthly_reports.files | default([]) }}"
+  when: old_monthly_reports.files | default([]) | length > 0
+
+- name: Find and remove old manual reports
+  find:
+    paths: "{{ report_dir }}/manual"
+    age: "{{ retention_days.manual }}d"
+    recurse: yes
+  register: old_manual_reports
+  ignore_errors: yes
+
+- name: Remove old manual reports
+  file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ old_manual_reports.files | default([]) }}"
+  when: old_manual_reports.files | default([]) | length > 0
+
+- name: Remove empty directories
+  command: find {{ report_dir }} -type d -empty -delete
+  ignore_errors: yes
+
+- name: Report cleanup summary
+  debug:
+    msg: |
+      Report Cleanup Summary:
+      - Daily reports removed: {{ old_daily_reports.files | default([]) | length }}
+      - Weekly reports removed: {{ old_weekly_reports.files | default([]) | length }}
+      - Monthly reports removed: {{ old_monthly_reports.files | default([]) | length }}
+      - Manual reports removed: {{ old_manual_reports.files | default([]) | length }}

@@ -1,0 +1,66 @@
+---
+# Map a single STIG rule to configuration checks
+
+- name: Get STIG ID for mapping lookup
+  set_fact:
+    lookup_id: "{{ stig_rule.stig_id | default(stig_rule.id) | default('') }}"
+
+- name: Check for predefined mapping
+  set_fact:
+    has_mapping: "{{ lookup_id in (stig_config_map.mappings | default({})) }}"
+
+- name: Use predefined mapping if available
+  when: has_mapping
+  block:
+    - name: Get mapping details
+      set_fact:
+        rule_mapping: "{{ stig_config_map.mappings[lookup_id] }}"
+
+    - name: Add mapped check
+      set_fact:
+        compliance_checks: "{{ compliance_checks + [check_item] }}"
+      vars:
+        check_item:
+          stig_id: "{{ lookup_id }}"
+          vuln_id: "{{ stig_rule.vuln_id | default('') }}"
+          severity: "{{ stig_rule.severity | default('CAT_II') }}"
+          title: "{{ stig_rule.title | default('') }}"
+          category: "{{ rule_mapping.category | default('general') }}"
+          check_type: "{{ rule_mapping.check_type | default('present') }}"
+          check_command: "{{ rule_mapping.check_command | default('show running-config') }}"
+          expected_config: "{{ rule_mapping.expected_config | default([]) }}"
+          prohibited_config: "{{ rule_mapping.prohibited_config | default([]) }}"
+          fix_commands: "{{ rule_mapping.fix_commands | default(stig_rule.fix_commands | default([])) }}"
+          check_regex: "{{ rule_mapping.check_regex | default('') }}"
+          description: "{{ stig_rule.description | default('') }}"
+
+- name: Use auto-detection for unmapped rules
+  when: not has_mapping
+  block:
+    - name: Try to extract config from fix text
+      set_fact:
+        extracted_configs: "{{ stig_rule.fix_commands | default([]) }}"
+      when: stig_rule.fix_commands is defined and stig_rule.fix_commands | length > 0
+
+    - name: Add auto-detected check
+      when: extracted_configs | default([]) | length > 0
+      set_fact:
+        compliance_checks: "{{ compliance_checks + [check_item] }}"
+      vars:
+        check_type_auto: >-
+          {% set configs = extracted_configs | default([]) %}
+          {% if configs | select('match', '^no ') | list | length > (configs | length / 2) %}absent{% else %}present{% endif %}
+        check_item:
+          stig_id: "{{ lookup_id }}"
+          vuln_id: "{{ stig_rule.vuln_id | default('') }}"
+          severity: "{{ stig_rule.severity | default('CAT_II') }}"
+          title: "{{ stig_rule.title | default('') }}"
+          category: "auto_detected"
+          check_type: "{{ check_type_auto }}"
+          check_command: "show running-config"
+          expected_config: "{{ extracted_configs if check_type_auto == 'present' else [] }}"
+          prohibited_config: "{{ extracted_configs if check_type_auto == 'absent' else [] }}"
+          fix_commands: "{{ extracted_configs }}"
+          check_regex: ""
+          description: "{{ stig_rule.description | default('') }}"
+          auto_mapped: true

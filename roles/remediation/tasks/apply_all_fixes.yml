@@ -1,0 +1,36 @@
+---
+# Apply all fix commands at once (batch remediation)
+
+- name: Collect all fix commands
+  set_fact:
+    all_fix_commands: "{{ items_to_remediate | map(attribute='fix_commands') | flatten | unique | list }}"
+
+- name: Display all fix commands (dry run)
+  debug:
+    msg: |
+      [DRY RUN] Would apply {{ all_fix_commands | length }} commands:
+      {% for cmd in all_fix_commands %}
+      {{ cmd }}
+      {% endfor %}
+  when: dry_run | default(false)
+
+- name: Apply all configuration commands
+  cisco.ios.ios_config:
+    lines: "{{ all_fix_commands }}"
+  register: batch_config_result
+  when:
+    - not (dry_run | default(false))
+    - all_fix_commands | length > 0
+
+- name: Record batch remediation results
+  set_fact:
+    remediation_results: "{{ remediation_results + [batch_result] }}"
+  vars:
+    batch_result:
+      stig_id: "BATCH"
+      success: true
+      message: "Batch remediation applied"
+      commands_applied: "{{ all_fix_commands }}"
+      items_count: "{{ items_to_remediate | length }}"
+      changed: "{{ batch_config_result.changed | default(false) }}"
+  when: batch_config_result is defined

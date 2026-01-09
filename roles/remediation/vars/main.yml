@@ -1,0 +1,30 @@
+---
+# Remediation Role Variables
+
+# Require user approval before remediation
+remediation_require_approval: true
+
+# Backup before remediation
+backup_before_remediation: true
+
+# Save config after remediation
+save_config_after_remediation: true
+
+# Verify compliance after remediation
+verify_after_remediation: true
+
+# Auto-rollback on failure
+auto_rollback_enabled: true
+rollback_on_failure: true
+
+# Apply all fixes at once (vs. one by one)
+remediate_all_at_once: false
+
+# Dry run mode
+dry_run: false
+
+# Wait between fixes (seconds)
+fix_delay: 1
+
+# Maximum retries for failed fixes
+max_fix_retries: 2

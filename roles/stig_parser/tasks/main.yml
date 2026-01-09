@@ -1,0 +1,68 @@
+---
+# STIG Parser Role - Main Tasks
+# Parses STIG checklist files (.ckl or .txt/.yml) and prepares compliance rules
+
+- name: Validate STIG source file exists
+  delegate_to: localhost
+  run_once: true
+  stat:
+    path: "{{ stig_source_file }}"
+  register: stig_file_check
+  failed_when: not stig_file_check.stat.exists
+
+- name: Determine STIG file type
+  delegate_to: localhost
+  run_once: true
+  set_fact:
+    stig_file_type: "{{ 'ckl' if stig_source_file.endswith('.ckl') else 'config' }}"
+
+- name: Parse CKL file
+  delegate_to: localhost
+  run_once: true
+  ckl_parser:
+    src: "{{ stig_source_file }}"
+    severity_filter: "{{ stig_severity_filter | default([]) }}"
+    extract_fix_commands: true
+  register: ckl_parsed_data
+  when: stig_file_type == 'ckl'
+
+- name: Parse text/YAML config rules file
+  delegate_to: localhost
+  run_once: true
+  include_tasks: parse_config_rules.yml
+  when: stig_file_type == 'config'
+
+- name: Set STIG rules from CKL
+  delegate_to: localhost
+  run_once: true
+  set_fact:
+    stig_rules: "{{ ckl_parsed_data.vulns | default([]) }}"
+    stig_metadata: "{{ ckl_parsed_data.stig_info | default({}) }}"
+    stig_summary: "{{ ckl_parsed_data.summary | default({}) }}"
+  when: stig_file_type == 'ckl'
+
+- name: Display parsed STIG summary
+  delegate_to: localhost
+  run_once: true
+  debug:
+    msg: |
+      STIG Checklist Loaded:
+      - Title: {{ stig_metadata.title | default('N/A') }}
+      - Version: {{ stig_metadata.version | default('N/A') }}
+      - Release: {{ stig_metadata.releaseinfo | default('N/A') }}
+      - Total Rules: {{ stig_rules | length }}
+      - CAT I: {{ stig_summary.cat_i_count | default(0) }}
+      - CAT II: {{ stig_summary.cat_ii_count | default(0) }}
+      - CAT III: {{ stig_summary.cat_iii_count | default(0) }}
+  when: stig_rules is defined
+
+- name: Build compliance check mapping
+  delegate_to: localhost
+  run_once: true
+  include_tasks: build_check_mapping.yml
+
+- name: Archive previous STIG file if new
+  delegate_to: localhost
+  run_once: true
+  include_tasks: archive_stig.yml
+  when: archive_previous_stig | default(false)

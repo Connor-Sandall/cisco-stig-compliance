@@ -1,0 +1,13 @@
+---
+# Process compliance checks for a specific category
+
+- name: Get checks for category {{ check_category }}
+  set_fact:
+    category_checks: "{{ compliance_checks | selectattr('category', 'equalto', check_category) | list }}"
+
+- name: Process each check in category {{ check_category }}
+  include_tasks: execute_check.yml
+  loop: "{{ category_checks }}"
+  loop_control:
+    loop_var: current_check
+  when: category_checks | length > 0
